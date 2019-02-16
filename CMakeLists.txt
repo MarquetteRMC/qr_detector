@@ -26,6 +26,10 @@ install(TARGETS qr_detector_nodelet
     RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
+add_executable(qr_detect_1 src/detector.cpp)
+target_link_libraries(qr_detect_1 ${catkin_LIBRARIES})
+
+
 install(DIRECTORY include/${PROJECT_NAME}/
     DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION})
 
