@@ -38,6 +38,7 @@ private:
    // image_transport::Subscriber imgSubscriber;
 	ros::Subscriber imgSubscriber = nh.subscribe("image", 10, &QrDetectorNodelet::imageCb, this);   
 	ros::Publisher tagsPublisher; //publisher code will need to be hard coded to the ODrive node.
+	ros::Publisher vel_Publisher;
     	zbar::ImageScanner scanner_;
 	ros::Timer clean_timer_;
 	boost::unordered_map<std::string, ros::Time> barcode_memory_;
