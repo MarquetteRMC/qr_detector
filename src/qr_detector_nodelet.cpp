@@ -10,13 +10,9 @@
 #include "pluginlib/class_list_macros.h"
 #include <cv_bridge/cv_bridge.h>
 #include <sensor_msgs/image_encodings.h>
+#include <image_transport/image_transport.h>
 #include "std_msgs/String.h"
 
-#include <geometry_msgs/Twist.h>
-
-//PLUGINLIB_EXPORT_CLASS(qr_detector::QrDetectorNodelet, nodelet::Nodelet);
-
-bool detection = false;
 
 namespace qr_detector {
 
@@ -39,7 +35,6 @@ void QrDetectorNodelet::onInit()
     tagsPublisher = nh.advertise<std_msgs::String>("qr_codes", 10,
                                                    boost::bind(&QrDetectorNodelet::connectCb, this),
                                                    boost::bind(&QrDetectorNodelet::disconnectCb, this));
-    vel_Publisher = nh.advertise<geometry_msgs::Twist>("cmd_vel",10);
 	private_nh_.param<double>("throttle_repeated_barcodes", throttle_, 0.0);
 	if (throttle_ > 0.0){
 		clean_timer_ = nh.createTimer(ros::Duration(10.0), boost::bind(&QrDetectorNodelet::cleanCb, this));
@@ -57,6 +52,7 @@ void QrDetectorNodelet::connectCb()
         NODELET_INFO("Connecting to image topic.");
         //bool detection = false;
         imgSubscriber = nh.subscribe("camera/rgb/image_raw", 10, &QrDetectorNodelet::imageCb, this);
+        depth_img_Subscriber = nh.subscribe("camera/depth/image", 2, &QrDetectorNodelet::depthCb, this);
     }
 }
 
@@ -66,29 +62,18 @@ void QrDetectorNodelet::disconnectCb()
     {
         NODELET_INFO("Unsubscribing from image topic.");
         imgSubscriber.shutdown();
+        depth_img_Subscriber.shutdown();
     }
 }
 
 void QrDetectorNodelet::imageCb(const sensor_msgs::ImageConstPtr &image)
-{
-
-    //bool detection = false;
-        
+{        
     cv_bridge::CvImageConstPtr cv_image;
+	
 	cv_image = cv_bridge::toCvShare(image, "mono8");
-	
-	
+
 	zbar::Image zbar_image(cv_image->image.cols, cv_image->image.rows, "Y800", cv_image->image.data, cv_image->image.cols * cv_image->image.rows);
-	
-    geometry_msgs::Twist twist;
-    
-    if(detection == false){
-	twist.linear.x = 0;
-	twist.angular.z = -350.0;
-	
-    vel_Publisher.publish(twist);
-    }
-	
+		
 	scanner_.scan(zbar_image);
 
 	for(zbar::Image::SymbolIterator symbol = zbar_image.symbol_begin();
@@ -111,33 +96,30 @@ void QrDetectorNodelet::imageCb(const sensor_msgs::ImageConstPtr &image)
 			}
 			barcode_memory_.insert(std::make_pair(barcode, ros::Time::now() + ros::Duration(throttle_)));
 		}
-		//currently to see the data being published run rostopic echo /qr_codes
-		//Future work: will need to publish this data to the ODrives node to control the start up spin
+		
 		std_msgs::String barcode_string;
-		barcode_string.data = barcode;
+	        barcode_string.data = barcode;
 
-		ROS_INFO_STREAM("msgs: " << barcode);
-		if(barcode == "Left_Code"){
-		    //for future reference this will need a countdown timer function
-		    //create an if statement to see which QR code is found first, front or back
-		    //if front is back needs to turn another 90 degrees, if front is first needs to turn 270 degrees. 
-		    //Robot will spin clockwise motion.
-		    //once the degree rotation is accomplished will need to publish angular 0 and linear 0.
-
-
-		    detection = true;		    
-		    ROS_INFO_STREAM("did i make it??");
-		    twist.linear.x=0;
-            twist.angular.z = 0;
-            ROS_INFO_STREAM("Did i publish dataaa");
-            }
-        
-        vel_Publisher.publish(twist);
-		tagsPublisher.publish(barcode_string);
-	}
-	
+	        tagsPublisher.publish(barcode_string);
+	    }
 	zbar_image.set_data(NULL, 0);
   }
+  
+void QrDetectorNodelet::depthCb(const sensor_msgs::ImageConstPtr& image){
+    cv_bridge::CvImagePtr cv_ptr;//line added for depth
+    cv_ptr = cv_bridge::toCvCopy(image, sensor_msgs::image_encodings::TYPE_16UC1); //line added for depth
+   
+    int front_depth = cv_ptr->image.at<short int>(cv::Point(240,320)); //line added for depth
+	ROS_INFO_STREAM("Depth of front QR: " <<front_depth);
+    
+    
+
+    //int back_depth = cv_ptr->image.at<short int>(cv::Point(240,320)); //line added for depth
+    //ROS_INFO_STREAM("Depth of back QR: " <<back_depth);
+
+}
+
+
   void QrDetectorNodelet::cleanCb()
   {
 	for(boost::unordered_map<std::string, ros::Time>::iterator it = barcode_memory_.begin();

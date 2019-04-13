@@ -31,15 +31,17 @@ private:
     void connectCb();
     void disconnectCb();
     void imageCb(const sensor_msgs::ImageConstPtr& image);
+    void depthCb(const sensor_msgs::ImageConstPtr& image);
     void cleanCb();
 
    	 ros::NodeHandle nh, private_nh_;
     //image_transport::ImageTransport it;
    // image_transport::Subscriber imgSubscriber;
-	ros::Subscriber imgSubscriber = nh.subscribe("image", 10, &QrDetectorNodelet::imageCb, this);   
-	ros::Publisher tagsPublisher; //publisher code will need to be hard coded to the ODrive node.
-	ros::Publisher vel_Publisher;
-    	zbar::ImageScanner scanner_;
+	ros::Subscriber imgSubscriber = nh.subscribe("image", 10, &QrDetectorNodelet::imageCb, this);
+	ros::Subscriber depth_img_Subscriber = nh.subscribe("camera/depth/image", 10, &QrDetectorNodelet::depthCb, this);
+	ros::Publisher tagsPublisher;
+	//ros::Publisher vel_Publisher; //can remove once V2 version works
+    zbar::ImageScanner scanner_;
 	ros::Timer clean_timer_;
 	boost::unordered_map<std::string, ros::Time> barcode_memory_;
     	
